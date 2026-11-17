@@ -28,7 +28,14 @@ function localize(href: string, pathname: string) {
   return pathname === "/" && href.startsWith("/#") ? href.slice(1) : href;
 }
 
-export function SiteHeader({ content: rawContent }: { content: HeaderContent }) {
+export function SiteHeader({
+  content: rawContent,
+  account,
+}: {
+  content: HeaderContent;
+  /** Server-rendered login state (streams in); replaces the CMS login button on desktop. */
+  account?: React.ReactNode;
+}) {
   const pathname = usePathname();
   const content = useMemo<HeaderContent>(() => {
     const fix = (link: NavLink | null) => link && { ...link, href: localize(link.href, pathname) };
@@ -84,7 +91,9 @@ export function SiteHeader({ content: rawContent }: { content: HeaderContent }) 
           <DesktopNav links={content.links} pathname={pathname} />
 
           <div className="flex items-center gap-1.5">
-            {content.secondaryAction && (
+            {account ? (
+              <div className="hidden md:flex">{account}</div>
+            ) : content.secondaryAction && (
               <Link
                 href={content.secondaryAction.href}
                 {...linkProps(content.secondaryAction.href)}
@@ -128,7 +137,7 @@ function DesktopNav({ links, pathname }: { links: NavLink[]; pathname: string })
 
   return (
     <ul
-      className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-0.5 lg:flex"
+      className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-0.5 whitespace-nowrap lg:flex"
       onPointerLeave={() => setHovered(null)}
     >
       {links.map((link, index) => (

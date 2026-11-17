@@ -3,8 +3,10 @@ import type { Metadata } from "next";
 import { CalculatorSection } from "@/components/home/calculator-section/calculator-section";
 import { Hero } from "@/components/home/hero/hero";
 import { HowItWorks } from "@/components/home/how-it-works/how-it-works";
+import { InsightsSection } from "@/components/home/insights-section/insights-section";
 import { StartWhereYouAre } from "@/components/home/start-where-you-are/start-where-you-are";
 import { getCalculatorData } from "@/lib/content/calculator";
+import { getArticles } from "@/lib/content/insights";
 import {
   getHomeAcf,
   toCalculatorSectionContent,
@@ -37,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [acf, calculator] = await Promise.all([getHomeAcf(), getCalculatorData()]);
+  const [acf, calculator, articles] = await Promise.all([getHomeAcf(), getCalculatorData(), getArticles()]);
   const hero = toHeroContent(acf);
   const start = toStartContent(acf);
   const howItWorks = toHowItWorksContent(acf);
@@ -48,6 +50,7 @@ export default async function HomePage() {
       {start && <StartWhereYouAre content={start} />}
       {howItWorks && <HowItWorks content={howItWorks} />}
       <CalculatorSection content={toCalculatorSectionContent(acf)} settings={calculator.settings} />
+      <InsightsSection articles={articles} />
     </main>
   );
 }

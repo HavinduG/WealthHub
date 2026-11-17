@@ -81,12 +81,32 @@ function toImage(image: ACFImage | false | null | undefined, fallbackAlt = ""): 
   };
 }
 
+/**
+ * Pages that exist on this site, used while a WordPress link field is empty:
+ * a menu item or button with one of these labels links to the page instead of
+ * an on-page anchor. A link set in WordPress always wins.
+ */
+const KNOWN_ROUTES: [RegExp, string][] = [
+  [/^insights?$|^blog$/i, "/insights"],
+  [/^calculator$/i, "/calculator"],
+  [/^log ?in$|^sign ?in$/i, "/login"],
+  [/^subscribe$|^join$|^sign ?up$|^register$/i, "/register?plan=yearly"],
+];
+
+function siteHref(link: string | undefined, label: string) {
+  if (!link?.trim()) {
+    const known = KNOWN_ROUTES.find(([pattern]) => pattern.test(label.trim()));
+    if (known) return known[1];
+  }
+  return resolveHref(link, label, wordpressUrl());
+}
+
 function toAction(label: string | undefined, link?: string): NavLink | null {
   const text = label?.trim();
   if (!text) return null;
   // CMS button text may be lowercase ("login"); buttons read better capitalised.
   const display = text.charAt(0).toUpperCase() + text.slice(1);
-  return { label: display, href: resolveHref(link, text, wordpressUrl()) };
+  return { label: display, href: siteHref(link, text) };
 }
 
 /** Raw home page ACF, or null if the page doesn't exist. */
@@ -123,7 +143,7 @@ export function toHeaderContent(acf: Partial<HomeAcf> | null): HeaderContent {
       .filter((row) => row.header_menu_name?.trim())
       .map((row) => ({
         label: row.header_menu_name.trim(),
-        href: toSiteHref(resolveHref(row.header_menu_link, row.header_menu_name, wordpressUrl())),
+        href: toSiteHref(siteHref(row.header_menu_link, row.header_menu_name)),
       }))
       .reduce<NavLink[]>(withCalculatorLink, []),
     secondaryAction: toSiteAction(toAction(acf?.button_1)),

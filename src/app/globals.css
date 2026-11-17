@@ -12,6 +12,8 @@
   --font-heading: var(--font-sans);
   --font-serif: var(--font-instrument-serif);
   --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft, #f3e6cc);
+  --color-emerald-2: var(--emerald-2, #1b5a50);
   --color-mint: var(--mint);
   --color-surface: var(--surface);
   --shadow-float: 0 1px 2px oklch(0.25 0.03 160 / 0.04), 0 12px 32px -8px oklch(0.25 0.03 160 / 0.14);
@@ -72,6 +74,9 @@
   --accent: oklch(0.95 0.018 160);
   --accent-foreground: oklch(0.3 0.05 166);
   --gold: oklch(0.76 0.085 75);
+  /* Figma: gold-soft #f3e6cc (badges, tags), emerald-2 #1b5a50 (avatars). */
+  --gold-soft: oklch(0.93 0.04 82);
+  --emerald-2: oklch(0.42 0.06 172);
   --mint: oklch(0.93 0.035 160);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.915 0.008 85);
@@ -184,5 +189,41 @@
 @keyframes cover-failsafe {
   to {
     transform: translateY(-101%);
+  }
+}
+
+/* Article body from the WordPress editor (Figma: Body/L 18/30, Heading/M 22/30). */
+@layer components {
+  .prose-article {
+    @apply text-[1.0625rem] leading-[1.8] text-foreground/85 sm:text-lg sm:leading-[1.875rem];
+  }
+  .prose-article > * + * {
+    @apply mt-6;
+  }
+  .prose-article p > strong:first-child:has(+ br) {
+    @apply mb-1 inline-block text-[1.375rem] leading-[1.875rem] font-semibold tracking-[-0.01em] text-foreground;
+  }
+  .prose-article strong {
+    @apply font-semibold text-foreground;
+  }
+  .prose-article h2,
+  .prose-article h3 {
+    @apply text-[1.375rem] leading-[1.875rem] font-semibold tracking-[-0.01em] text-foreground;
+  }
+  .prose-article ol,
+  .prose-article ul {
+    @apply space-y-2 pl-6;
+  }
+  .prose-article ol {
+    @apply list-decimal;
+  }
+  .prose-article ul {
+    @apply list-disc;
+  }
+  .prose-article li::marker {
+    @apply font-semibold text-primary;
+  }
+  .prose-article a {
+    @apply font-medium text-primary underline underline-offset-4;
   }
 }

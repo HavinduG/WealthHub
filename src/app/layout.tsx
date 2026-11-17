@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 
-import { SiteHeader } from "@/components/layout/site-header";
 import { Providers } from "@/components/providers";
 import { JsonLd } from "@/components/seo/json-ld";
-import { getHomeAcf, toHeaderContent } from "@/lib/content/home";
 import { getSite } from "@/lib/content/site";
 import { SITE_URL } from "@/lib/site";
 
@@ -29,16 +27,6 @@ const mono = Geist_Mono({
   subsets: ["latin"],
   display: "swap",
 });
-
-/** Header content lives on the WordPress "Home" page; falls back to defaults if unavailable. */
-async function getHeader() {
-  try {
-    return toHeaderContent(await getHomeAcf());
-  } catch (error) {
-    console.warn("[layout] Could not load header content:", error);
-    return toHeaderContent(null);
-  }
-}
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSite();
@@ -66,7 +54,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [site, header] = await Promise.all([getSite(), getHeader()]);
+  const site = await getSite();
 
   return (
     <html
@@ -92,7 +80,6 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
         <Providers>
-          <SiteHeader content={header} />
           {children}
         </Providers>
       </body>
