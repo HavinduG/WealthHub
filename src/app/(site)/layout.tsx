@@ -1,22 +1,24 @@
 import { Suspense } from "react";
 
 import { AccountMenu, LoginLink } from "@/components/layout/account-menu";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { getHomeAcf, toHeaderContent } from "@/lib/content/home";
+import { getHomeAcf, toFooterContent, toHeaderContent } from "@/lib/content/home";
 
-/** Header content lives on the WordPress "Home" page; falls back to defaults if unavailable. */
-async function getHeader() {
+/** Header and footer content live on the WordPress "Home" page; both fall back to defaults if unavailable. */
+async function getHomeAcfSafe() {
   try {
-    return toHeaderContent(await getHomeAcf());
+    return await getHomeAcf();
   } catch (error) {
-    console.warn("[layout] Could not load header content:", error);
-    return toHeaderContent(null);
+    console.warn("[layout] Could not load header/footer content:", error);
+    return null;
   }
 }
 
-/** Pages with the main site header (everything except checkout). */
+/** Pages with the main site header and footer (everything except checkout). */
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const header = await getHeader();
+  const acf = await getHomeAcfSafe();
+  const header = toHeaderContent(acf);
   const loginLabel = header.secondaryAction?.label;
 
   return (
@@ -31,6 +33,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         }
       />
       {children}
+      <SiteFooter content={toFooterContent(acf)} />
     </>
   );
 }

@@ -38,6 +38,38 @@ export interface HomeAcf {
   >[];
   calculator_title: string;
   calculator_description: string;
+  /** Advisor short section. */
+  title: string;
+  short_section_description: string;
+  short_section_button_1: string;
+  short_section_button_2: string;
+  /** FAQ as WordPress editor HTML: one `<p>` per item, bold question, `<br>`, answer. */
+  questions: string;
+  faq_title: string;
+  faq_button: string;
+  footer_logo: ACFImage | false;
+  footer_title: string;
+  footer_description: string;
+  footer_links: ACFFlexibleRow<
+    "footer_link",
+    {
+      footer_link_title: string;
+      footer_links_url_names: ACFFlexibleRow<"footer_links_url_name", { url_name: string; link_urls: string }>[];
+    }
+  >[];
+  social_media: ACFFlexibleRow<
+    "social_media",
+    { social_media_name: string; social_media_image: ACFImage | false; social_media_link: string }
+  >[];
+  personal_data: ACFFlexibleRow<
+    "personal_data",
+    { personal_data_name: string; personal_data_detail: string; personal_data_image: ACFImage | false }
+  >[];
+  /** Field name is spelled "textimonials" in WordPress. */
+  textimonials: ACFFlexibleRow<
+    "textimonial",
+    { name: string; position_or_role: string; description: string; stars_feedback: string }
+  >[];
 }
 
 export interface NavLink {
@@ -233,5 +265,201 @@ export function toCalculatorSectionContent(acf: Partial<HomeAcf> | null): Calcul
   return {
     title: acf?.calculator_title?.trim() ?? "",
     description: acf?.calculator_description?.trim() ?? "",
+  };
+}
+
+export interface Testimonial {
+  name: string;
+  role: string;
+  quote: string;
+  /** Whole stars, 0–5. */
+  stars: number;
+}
+
+/** Quote text from the CMS: collapses line breaks and drops stray wrapping quote marks. */
+function cleanQuote(text: string) {
+  return text
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^["“”]+|["“”]+$/g, "")
+    .trim();
+}
+
+function toStars(value: string | undefined) {
+  const stars = Math.round(Number(value));
+  return Number.isFinite(stars) ? Math.min(5, Math.max(0, stars)) : 5;
+}
+
+/** Member testimonials. Empty when WordPress has none (the section is then hidden). */
+export function toTestimonials(acf: Partial<HomeAcf> | null): Testimonial[] {
+  return (acf?.textimonials ?? [])
+    .filter((row) => row.name?.trim() && row.description?.trim())
+    .map((row) => ({
+      name: row.name.trim(),
+      role: row.position_or_role?.trim() ?? "",
+      quote: cleanQuote(row.description),
+      stars: toStars(row.stars_feedback),
+    }));
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", "#8217": "’", nbsp: " " };
+
+function htmlToText(html: string) {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&(#?\w+);/g, (match, name: string) => ENTITIES[name] ?? match)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** FAQ items from the `questions` editor field: "<p><strong>1. Question?</strong><br />Answer</p>". */
+export function toFaqItems(html: string | undefined): FaqItem[] {
+  if (!html) return [];
+  return [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+    .map(([, body]) => {
+      const strong = body!.match(/<strong>([\s\S]*?)<\/strong>/i);
+      if (!strong) return null;
+      const question = htmlToText(strong[1]!).replace(/^\d+[.)]\s*/, "");
+      const answer = htmlToText(body!.replace(strong[0], ""));
+      return question && answer ? { question, answer } : null;
+    })
+    .filter((item): item is FaqItem => item !== null);
+}
+
+export interface AdvisorContent {
+  title: string;
+  description: string;
+  primaryLabel: string;
+  secondaryLabel: string;
+  /** Shown as a sample advisor chat. */
+  faqs: FaqItem[];
+}
+
+/** Advisor short section. Null when the title is empty in WordPress. */
+export function toAdvisorContent(acf: Partial<HomeAcf> | null): AdvisorContent | null {
+  const title = acf?.title?.trim();
+  if (!title) return null;
+  return {
+    title,
+    description: acf?.short_section_description?.trim() ?? "",
+    primaryLabel: acf?.short_section_button_1?.trim() ?? "",
+    secondaryLabel: acf?.short_section_button_2?.trim() ?? "",
+    faqs: toFaqItems(acf?.questions),
+  };
+}
+
+export interface FaqContent {
+  items: FaqItem[];
+  /** CTA card text beside the questions. */
+  ctaTitle: string;
+  ctaLabel: string;
+}
+
+/** FAQ section. Null when the `questions` field has no items. */
+export function toFaqContent(acf: Partial<HomeAcf> | null): FaqContent | null {
+  const items = toFaqItems(acf?.questions);
+  if (items.length === 0) return null;
+  return {
+    items,
+    ctaTitle: acf?.faq_title?.trim() ?? "",
+    ctaLabel: acf?.faq_button?.trim() ?? "",
+  };
+}
+
+/**
+ * Where empty footer links go: sections and pages that exist on this site.
+ * A link set in WordPress always wins; labels with no match stay plain text.
+ */
+const FOOTER_ROUTES: [RegExp, string][] = [
+  [/how it works/i, "/#how-it-works"],
+  [/eligib/i, "/#eligibility"],
+  [/mortgage|calculator|afford/i, "/calculator"],
+  [/insight|blog|news/i, "/insights"],
+  [/advisor|contact/i, "/#advisor"],
+  [/faq|question/i, "/#faq"],
+  [/testimonial|review/i, "/#testimonials"],
+  [/log ?in|sign ?in/i, "/login"],
+  [/subscribe|join|sign ?up|register|plans?$/i, "/register?plan=yearly"],
+];
+
+function footerHref(link: string | undefined, label: string): string | null {
+  if (link?.trim()) return toSiteHref(resolveHref(link, label, wordpressUrl()));
+  return FOOTER_ROUTES.find(([pattern]) => pattern.test(label))?.[1] ?? null;
+}
+
+export interface FooterLink {
+  label: string;
+  /** Null while WordPress has no URL and no page on the site matches the label. */
+  href: string | null;
+}
+
+export interface FooterColumn {
+  title: string;
+  links: FooterLink[];
+}
+
+export interface FooterSocial {
+  name: string;
+  href: string | null;
+  icon: SiteImage | null;
+}
+
+export interface FooterContact {
+  label: string;
+  value: string;
+  /** mailto:/tel: for email and phone rows. */
+  href: string | null;
+  icon: SiteImage | null;
+}
+
+export interface FooterContent {
+  title: string;
+  description: string;
+  logo: SiteImage | null;
+  columns: FooterColumn[];
+  socials: FooterSocial[];
+  /** Only rows with a detail filled in. */
+  contacts: FooterContact[];
+}
+
+function contactHref(label: string, value: string) {
+  if (/mail/i.test(label) || /^\S+@\S+\.\S+$/.test(value)) return `mailto:${value}`;
+  if (/phone|tel|mobile|whatsapp/i.test(label)) return `tel:${value.replace(/[^\d+]/g, "")}`;
+  return null;
+}
+
+export function toFooterContent(acf: Partial<HomeAcf> | null): FooterContent {
+  const title = acf?.footer_title?.trim() || acf?.header_title?.trim() || "Wealth Hub";
+  return {
+    title,
+    description: acf?.footer_description?.trim() ?? "",
+    logo: toImage(acf?.footer_logo, title) ?? toImage(acf?.header_image, title),
+    columns: (acf?.footer_links ?? [])
+      .map((column) => ({
+        title: column.footer_link_title?.trim() ?? "",
+        links: (column.footer_links_url_names ?? [])
+          .filter((link) => link.url_name?.trim())
+          .map((link) => ({ label: link.url_name.trim(), href: footerHref(link.link_urls, link.url_name.trim()) })),
+      }))
+      .filter((column) => column.links.length > 0),
+    socials: (acf?.social_media ?? [])
+      .filter((item) => item.social_media_name?.trim())
+      .map((item) => ({
+        name: item.social_media_name.trim(),
+        href: item.social_media_link?.trim() || null,
+        icon: toImage(item.social_media_image, item.social_media_name),
+      })),
+    contacts: (acf?.personal_data ?? [])
+      .filter((item) => item.personal_data_name?.trim() && item.personal_data_detail?.trim())
+      .map((item) => {
+        const label = item.personal_data_name.trim();
+        const value = item.personal_data_detail.trim();
+        return { label, value, href: contactHref(label, value), icon: toImage(item.personal_data_image, label) };
+      }),
   };
 }
